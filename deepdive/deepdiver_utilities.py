@@ -653,7 +653,10 @@ def config_autotune(config_init, target_n_occs_range=10):
     if pres_div is not None:
         config["simulations"]["extant_sp"] = "%s %s" % (int(pres_div / 2),
                                                         int(pres_div * 10))
-
+        if pres_div == 0:
+            config["simulations"]["pr_extant_clade"] = "0"
+        else:
+            config["simulations"]["pr_extant_clade"] = "1"
     config["simulations"]["total_sp"] = "%s %s" % (int(np.max(n_species) * 2), int(np.sum(n_species) * 20))
 
     config["simulations"]["target_n_occs"] = "%s" % np.sum(n_occs)
@@ -692,7 +695,7 @@ def config_autotune(config_init, target_n_occs_range=10):
     if config["simulations"]["s_species"] == "NA":
         config["simulations"]["s_species"] = config["simulations"]["dd_K"]
 
-    config["simulations"]["min_n_occurrences"] = str(np.sum(n_occs) * 0.5)
+    config["simulations"]["min_n_occurrences"] = str(np.sum(n_occs) * 0.1)
     # print("min_n_occurrences set to ", np.sum(n_occs) * 0.5)
 
     config["general"]["autotune"] = "FALSE"
