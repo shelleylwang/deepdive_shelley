@@ -9,6 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends import backend_pdf  # saves pdfs
 from datetime import datetime
+
 from .rnn_builder import fit_rnn
 from .bd_simulator import bd_simulator
 from .fossil_simulator import fossil_simulator
@@ -33,6 +34,12 @@ def create_sim_obj_from_config(config, rseed=None):
     else:
         fixed_mass_extinction = None
 
+    if "survive_age_condition" in config["simulations"]:
+        survive_age_condition = float(config["simulations"]["survive_age_condition"])
+    else:
+        survive_age_condition = None
+
+
     if rseed is None:
         rseed = config.getint("simulations", "training_seed")
     bd_sim = bd_simulator(s_species=s_species,  # number of starting species
@@ -54,6 +61,7 @@ def create_sim_obj_from_config(config, rseed=None):
                           dd_maxL=config.getfloat("simulations", "dd_maxl"),
                           dd_K=list(map(float, config["simulations"]["dd_k"].split())),
                           pr_extant_clade=float(config["simulations"]["pr_extant_clade"]),
+                          survive_age_condition=survive_age_condition,
                           poiL=config.getfloat("simulations", "poil"),  # expected number of birth rate shifts
                           poiM=config.getfloat("simulations", "poim"),  # expected number of death rate shifts
                           seed=rseed,  # if > 0 fixes the random seed to make simulations reproducible
@@ -635,8 +643,12 @@ def config_autotune(config_init, target_n_occs_range=10):
     config["simulations"]["sd_through_time_skyline"] = "%s" % np.std(np.log(n_localities_area + 1))
 
     # re-set carrying capacity
+    if pres_div is not None:
+        min_div = pres_div * 2
+    else:
+        min_div = 1
     config["simulations"]["dd_K"] = "%s %s" % (int(np.mean(range_through_div[range_through_div > 0]) / 2),
-                                               np.maximum(pres_div * 2, int(np.max(range_through_div) * 5)))
+                                               np.maximum(min_div, int(np.max(range_through_div) * 5)))
 
     # re-set per-species sampling rate
     m = (n_species - n_singletons)[range_through_div > 0] / range_through_div[range_through_div > 0]
@@ -652,12 +664,21 @@ def config_autotune(config_init, target_n_occs_range=10):
 
     # pres_species = int(config["general"]["present_diversity"])
     if pres_div is not None:
-        config["simulations"]["extant_sp"] = "%s %s" % (int(pres_div / 2),
-                                                        int(pres_div * 10))
+        if pres_div > 0:
+            config["simulations"]["extant_sp"] = "%s %s" % (int(pres_div / 2),
+                                                            int(pres_div * 10))
+    # if pres_div == 0:
+    #     config["simulations"]["pr_extant_clade"] = "0"
+    # else:
+    #     config["simulations"]["pr_extant_clade"] = "1"
+
+    # Add condition on minimum clade duration
+    if pres_div is not None:
         if pres_div == 0:
-            config["simulations"]["pr_extant_clade"] = "0"
-        else:
-            config["simulations"]["pr_extant_clade"] = "1"
+            min_age_with_occurrences = np.min(time_bins[:-1][n_occs > 0])
+            config["simulations"]["survive_age_condition"] = "%s" % min_age_with_occurrences
+
+
     config["simulations"]["total_sp"] = "%s %s" % (int(np.max(n_species) * 2), int(np.sum(n_species) * 20))
 
     config["simulations"]["target_n_occs"] = "%s" % np.sum(n_occs)
@@ -694,7 +715,7 @@ def config_autotune(config_init, target_n_occs_range=10):
     config["simulations"]["bin_sampling"] = "0.67" # 50% of simulations overall with empirical loc rates
 
     if config["simulations"]["s_species"] == "NA":
-        config["simulations"]["s_species"] = config["simulations"]["dd_K"]
+        config["simulations"]["s_species"] = "1 %s" % np.maximum(min_div, int(np.max(range_through_div) * 5))
 
     config["simulations"]["min_n_occurrences"] = str(np.sum(n_occs) * 0.1)
     # print("min_n_occurrences set to ", np.sum(n_occs) * 0.5)

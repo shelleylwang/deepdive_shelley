@@ -67,15 +67,65 @@ def plot_dd_predictions(pred_div, time_bins, wd, out_tag="", total_diversity=Fal
     print("Plot saved as:", file_name)
 
 
+
+def plot_sampling_fraction(sampling_fraction, time_bins, out_tag):
+    fig = plt.figure(figsize=(12, 8))
+    plt.fill_between(-time_bins,
+                     y1=np.max(sampling_fraction, axis=0).T,
+                     y2=np.min(sampling_fraction, axis=0).T,
+                     step="pre",
+                     color="mediumturquoise",
+                     alpha=0.2)
+
+    plt.fill_between(-time_bins,
+                     y1=np.quantile(sampling_fraction, q=0.975, axis=0).T,
+                     y2=np.quantile(sampling_fraction, q=0.025, axis=0).T,
+                     step="pre",
+                     color="mediumturquoise",
+                      alpha=0.2)
+
+    plt.fill_between(-time_bins,
+                      y1=np.quantile(sampling_fraction, q=0.75, axis=0).T,
+                      y2=np.quantile(sampling_fraction, q=0.25, axis=0).T,
+                      step="pre",
+                      color="mediumturquoise",
+                      alpha=0.2)
+    fraction = np.mean(sampling_fraction, axis=0)
+    plt.step(-time_bins,
+             fraction.T,
+             label="Mean prediction",
+             linewidth=2,
+             c="mediumturquoise",
+             alpha=1)
+
+    add_geochrono_no_labels(0, -0.1 * np.max(fraction), max_ma=-(np.max(time_bins) * 1.05), min_ma=0)
+    plt.ylim(bottom=-0.1 * np.max(fraction), top=np.max(sampling_fraction) * 1.05)
+    plt.xlim(-(np.max(time_bins) * 1.05), -np.min(time_bins) + 2)
+    plt.ylabel("Estimated sampling fraction", fontsize=15)
+    plt.xlabel("Time (Ma)", fontsize=15)
+
+    file_name = os.path.join(wd, "Sampling_fractions_%s.pdf" % out_tag)
+    div_plot = matplotlib.backends.backend_pdf.PdfPages(file_name)
+    div_plot.savefig(fig)
+    div_plot.close()
+    print("Plot saved as:", os.path.join(wd, file_name))
+
+
 def plot_ensemble_predictions(csv_files=None,
                               model_wd=None,
                               empirical_prediction_tag="Empirical_predictions_",
                               wd=None, out_tag="",
                               save_predictions=True,
-                              verbose=False):
+                              verbose=False,
+                              tot_div=False,
+                              return_file_name=False):
     if model_wd is not None:
         csv_files = []
-        model_folders = glob.glob(os.path.join(model_wd, "*"))
+        if tot_div:
+            model_folders = glob.glob(os.path.join(model_wd, "*_totdiv"))
+        else:
+            model_folders = np.array(glob.glob(os.path.join(model_wd, "*")))
+            model_folders = model_folders[["_totdiv" not in i for i in model_folders]]
         for i in model_folders:
             f = glob.glob(os.path.join(i,
                                        "*%s*.csv" %  empirical_prediction_tag))
@@ -88,19 +138,28 @@ def plot_ensemble_predictions(csv_files=None,
     pred_div_list = None
     for f in csv_files:
         f_pd = pd.read_csv(f)
-        time_bins = f_pd.columns.to_numpy().astype(float)
+        if tot_div:
+            time_bins = ["total_diversity"]
+        else:
+            time_bins = f_pd.columns.to_numpy().astype(float)
         if pred_div_list is None:
             pred_div_list = f_pd.to_numpy().astype(float)
         else:
             pred_div_list = np.vstack((pred_div_list, f_pd.to_numpy().astype(float)))
 
     if save_predictions:
+        if tot_div:
+            out_tag = out_tag + "_totdiv"
         pred_div_list_pd = pd.DataFrame(pred_div_list)
         pred_div_list_pd.columns = time_bins
         pred_div_list_pd.to_csv(os.path.join(wd,
                                              "Empirical_predictions_%s.csv" % out_tag),
                                 index=False)
-    plot_dd_predictions(pred_div_list, time_bins, wd, out_tag)
+    if tot_div is False:
+        plot_dd_predictions(pred_div_list, time_bins, wd, out_tag)
+
+    if return_file_name:
+        return os.path.join(wd, "Empirical_predictions_%s.csv" % out_tag)
 
 
 
