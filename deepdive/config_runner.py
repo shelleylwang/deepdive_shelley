@@ -9,7 +9,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 from .deepdiver_utilities import *
 from .plots import add_geochrono_no_labels
+<<<<<<< HEAD
 from .plots import features_through_time, plot_dd_predictions, plot_ensemble_predictions, features_pca
+=======
+from .plots import features_through_time, plot_dd_predictions
+from .deepdiver_utilities import convert_r_to_python_style
+>>>>>>> fork/main
 
 np.set_printoptions(suppress=True, precision=3)
 
@@ -22,6 +27,9 @@ def run_config(config_file, wd=None, CPU=None, trained_model=None,
                ):
     config = configparser.ConfigParser()
     config.read(config_file)
+
+   # Convert R-style syntax to Python-style immediately after reading
+    config = convert_r_to_python_style(config)
 
     if wd is not None:
         config["general"]["wd"] = wd
